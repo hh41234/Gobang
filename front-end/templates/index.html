@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en-US">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="static/jquery-3.6.0.min.js"></script>
+<title>Gomoku</title>
+</head>
+<style>
+    body {
+        background: url("static/board.png");
+        background-repeat: no-repeat;
+        background-position: center;        
+        background-attachment: fixed;
+        background-size: 680px 680px;
+    }
+</style> 
+<body>
+    <div style="height: 20px; width: 500px; margin: 0 auto;">
+        <audio src="/static/bgm.mp3" autoplay="autoplay" loop="loop"></audio>
+        <button onclick="initChess()"><b>clear</b></button>
+        <button onclick="pvp()"><b>human-human</b></button>
+        <button onclick="fightWithRobot()"><b>human-AI</b></button>
+        <button onclick="change()"><b>flip</b></button>
+        <span></span>
+    </div>
+    <div style="margin:0  auto; width: 800px; margin-top: 25px; cursor: pointer;">
+        <canvas id="demo" width="900" height="650"></canvas>
+    </div>
+    <script>
+        var storage = window.localStorage;
+        const canvas = document.getElementById("demo");
+        const ctx = canvas.getContext("2d");
+        let isWin = false;
+        let FlagBlack = true;
+        let array = [];
+        let history = [];
+        let isAI = false; 
+        let width = $(window).width();
+        let point = width / 2 - 400;
+        let dx = 120, dy = 45;
+
+        function drawBoard() {
+            ctx.lineWidth = 0.8;
+            ctx.strokeStyle = "black";
+            ctx.beginPath();
+            for (let i = 0; i < 15; i++) 
+            {
+                ctx.moveTo(dx + 0, dy + 40 * i);
+                ctx.lineTo(dx + 560, dy + 40 * i);
+            }
+            for (let i = 0; i < 15; i++) 
+            {
+                ctx.moveTo(dx + 40 * i, dy + 0);
+                ctx.lineTo(dx + 40 * i, dy + 560);
+            }
+            ctx.stroke();
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawBlack() {
+            var img = new Image();
+            img.onload = function () 
+            {
+                ctx.drawImage(img, 0, 0, 30, 30);
+            }
+            //img.src = "static/black_pieces.png"
+        }
+
+        function drawWhite() {
+            var img = new Image();
+            img.onload = function () 
+            {
+                ctx.drawImage(img, 720, 0, 30, 30);
+            }
+            //img.src = "static/white_pieces.png"
+        }
+
+        function initfunc() {
+            drawBoard();
+            drawBlack();
+            drawWhite();
+        }
+
+        function drawChess(x, y) {
+            let realX, realY;
+            let x1 = parseInt((x - point - dx) / 40);
+            let x2 = (x - point - dx) % 40;
+            if (x2 <= 20) 
+            {
+                realX = x1 * 40;
+            } 
+            else 
+            {
+                realX = x1 * 40 + 40;
+            }
+            let y1 = parseInt((y - 60 - dy) / 40);
+            let y2 = (y - 60 - dy) % 40;
+            if (y2 <= 20) 
+            {
+                realY = y1 * 40;
+            } 
+            else 
+            {
+                realY = y1 * 40 + 40;
+            }
+            let indexX = realX / 40, indexY = realY / 40;
+            if (array[indexY][indexX] != null) 
+            {
+                return;
+            }
+            else if (FlagBlack) 
+            {
+                array[indexY][indexX] = 1;
+            } else 
+            {
+                array[indexY][indexX] = 0;
+            }
+            console.info(realX, realY);
+            let val = indexY + "," + indexX;
+            history.push(val);
+            if (FlagBlack) 
+            {
+                ctx.fillStyle = "black";
+            } 
+            else 
+            {
+                ctx.fillStyle = "white";
+            }
+            ctx.beginPath();
+            ctx.arc(realX + dx, realY + dy, 16, 0, 2 * Math.PI);
+            ctx.stroke();
+            ctx.fill();
+            ctx.closePath();
+            JudgeResult(indexX, indexY, FlagBlack);
+            FlagBlack = !FlagBlack;
+        }
+
+        function JudgeResult(indexX, indexY, FlagBlack) {
+            let color = 0;
+            if (FlagBlack) 
+            {
+                color = 1;
+            }
+            console.info(array);
+            console.info(indexX, indexY, color)
+            let a = indexX, b = indexY, num = 0;
+            while (a >= 0) 
+            {
+                if (array[b][a] == color) 
+                {
+                    num++;
+                    a--;
+                } 
+                else 
+                {
+                    break;
+                }
+            }
+            a = indexX;
+            while (a < 15) 
+            {
+                if (array[b][a] == color) 
+                {
+                    num++;
+                    a++;
+                } 
+                else 
+                {
+                    break;
+                }
+            }
+            result(num);
+            a = indexX, b = indexY, num = 0;
+            while (b >= 0) 
+            {
+                if (array[b][a] == color) 
+                {
+                    num++;
+                    b--;
+                } 
+                else 
+                {
+                    break;
+                }
+            }
+            b = indexY;
+            while (b < 15) 
+            {
+                if (array[b][a] == color) 
+                {
+                    num++;
+                    b++;
+                } 
+                else 
+                {
+                    break;
+                }
+            }
+            result(num);
+            a = indexX, b = indexY, num = 0;
+            while (a >= 0 && b >= 0) 
+            {
+                if (array[b][a] == color) 
+                {
+                    num++;
+                    a--;
+                    b--;
+                } 
+                else 
+                {
+                    break;
+                }
+            }
+            a = indexX, b = indexY;
+            while (a < 15 && b < 15) 
+            {
+                if (array[b][a] == color) 
+                {
+                    num++;
+                    a++;
+                    b++;
+                }
+                else 
+                {
+                    break;
+                }
+            }
+            result(num);
+            a = indexX, b = indexY, num = 0;
+            while (a >= 0 && b < 15) 
+            {
+                if (array[b][a] == color) 
+                {
+                    num++;
+                    a--;
+                    b++;
+                } 
+                else 
+                {
+                    break;
+                }
+            }
+            a = indexX, b = indexY;
+            while (a < 15 && b >= 0) 
+            {
+                if (array[b][a] == color) 
+                {
+                    num++;
+                    a++;
+                    b--;
+                } 
+                else 
+                {
+                    break;
+                }
+            }
+            result(num);
+        }
+
+        function result(num) {
+            console.info(num);
+            if (num >= 6) 
+            {
+                let msg = "Black WIN！";
+                if (!FlagBlack) 
+                {
+                    msg = "WHITE WIN!";
+                }
+                ctx.beginPath();
+                ctx.font = "40px Arial";
+                ctx.fillStyle = '#44CDAA';
+                ctx.fillText(msg, 360, 300);
+                ctx.closePath();
+                isWin = true;
+            }
+        }
+
+        function change() {
+            for (let i = 0; i < 15; i++) 
+            {
+                for (let j = 0; j < 15; j++) 
+                {
+                    let val = array[i][j];
+                    if (val == null) 
+                    {
+                        continue;
+                    } 
+                    else if (val == 1) 
+                    {
+                        array[i][j] = 0;
+                        ctx.beginPath();
+                        ctx.fillStyle = "white";
+                    } 
+                    else if (val == 0) 
+                    {
+                        array[i][j] = 1;
+                        ctx.beginPath();
+                        ctx.fillStyle = "black";
+                    }
+                    ctx.arc(dx + j * 40, dy + i * 40, 16, 0, 2 * Math.PI);
+                    ctx.stroke();
+                    ctx.fill();
+                    ctx.closePath();
+                }
+            }
+            FlagBlack = !FlagBlack;
+        }
+
+        function initChess() {
+            ctx.clearRect(80, 0, 640, 720);
+            drawBoard();
+            for (let i = 0; i < 15; i++) 
+            {
+                array[i] = new Array();
+                for (let j = 0; j < 15; j++) 
+                {
+                    array[i][j] = null;
+                }
+            }
+            FlagBlack = true;
+            history = [];
+            isWin = false;
+            isAI = false;
+        }
+
+        function fightWithRobot() {
+            isAI = true;
+        }
+
+        function pvp() {
+            isAI = false;
+        }
+
+        $(document).ready(function () {
+            initfunc();
+            for (let i = 0; i < 15; i++) 
+            {
+                array[i] = new Array();
+                for (let j = 0; j < 15; j++) 
+                {
+                    array[i][j] = null;
+                }
+            }
+            $.ajax({
+                url: "/begin"
+            });
+            $(document).mousedown(function (event) {
+                let x = event.pageX, 
+                    y = event.pageY;
+                if (isWin) 
+                {
+                    return;
+                }
+                if (x < dx + point - 20 || x > dx + point + 560 + 20 || y < dy + 60 - 20 || y > dy + 620 + 20) 
+                {
+                    return;
+                } 
+                else 
+                {
+                    drawChess(x, y);
+                    if (isAI) 
+                    {
+                        let realX, realY;
+                        let x1 = parseInt((x - point - dx) / 40);
+                        let x2 = (x - point - dx) % 40;
+                        if (x2 <= 20) 
+                        {
+                            realX = x1 * 40;
+                        } 
+                        else 
+                        {
+                            realX = x1 * 40 + 40;
+                        }
+                        let y1 = parseInt((y - 60 - dy) / 40);
+                        let y2 = (y - 60 - dy) % 40;
+                        if (y2 <= 20) 
+                        {
+                            realY = y1 * 40;
+                        } 
+                        else 
+                        {
+                            realY = y1 * 40 + 40;
+                        }
+                        let indexX = realX / 40, indexY = realY / 40;
+                        AIDraw(indexY, indexX);
+                    }
+                }
+            });
+        });
+
+        function AIDraw(x, y) {
+            if (!isWin) 
+            {
+                console.info(array)
+                console.info("AI begins")
+                var message = String(x) + " " + String(y);
+                $.ajax({
+                    url: "/msg",
+                    data: 
+                    {
+                        message: message
+                    },
+                    async: false,
+                    type: 'GET'
+                })
+
+                $.getJSON("/aiChange", async = false, function (data) 
+                {
+                    var tmp = data.message.split(" ");
+                    var i = Number(tmp[0]);
+                    var j = Number(tmp[1]);
+                    if (i == -1 && j == -1) 
+                    {
+                        change()
+                        return;
+                    }
+                    ctx.beginPath();
+                    if (!FlagBlack) 
+                    {
+                        array[i][j] = 0;
+                        ctx.fillStyle = "white";
+                    }
+                    else 
+                    {
+                        array[i][j] = 1;
+                        ctx.fillStyle = "black";
+                    }
+                    ctx.arc(dx + j * 40, dy + i * 40, 16, 0, 2 * Math.PI);
+                    ctx.stroke();
+                    ctx.fill();
+                    ctx.closePath();
+                    JudgeResult(j, i, FlagBlack);
+                    FlagBlack = !FlagBlack;
+                });
+            };
+        }
+    </script>
+</body>
+</html>
